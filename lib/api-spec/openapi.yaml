@@ -1,0 +1,331 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: prediction
+    description: Student performance prediction and explainability
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /predict:
+    post:
+      operationId: predictPerformance
+      tags: [prediction]
+      summary: Predict student performance and explain the result
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PredictionInput"
+      responses:
+        "200":
+          description: Prediction with model-grounded explanations
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PredictionResult"
+        "400":
+          description: Invalid prediction input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /chat:
+    post:
+      operationId: chat
+      tags: [prediction]
+      summary: Chat with the student performance assistant
+      description: Answers from the current prediction context when provided, or extracts six metrics from the message.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatInput"
+      responses:
+        "200":
+          description: Assistant response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatResult"
+        "400":
+          description: Invalid chat message
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+    PredictionInput:
+      type: object
+      properties:
+        studyHours:
+          type: number
+          minimum: 0
+          maximum: 24
+        attendance:
+          type: number
+          minimum: 0
+          maximum: 100
+        internalMarks:
+          type: number
+          minimum: 0
+          maximum: 100
+        assignmentMarks:
+          type: number
+          minimum: 0
+          maximum: 100
+        previousStudyHours:
+          type: number
+          minimum: 0
+          maximum: 24
+        previousMarks:
+          type: number
+          minimum: 0
+          maximum: 100
+      required:
+        - studyHours
+        - attendance
+        - internalMarks
+        - assignmentMarks
+        - previousStudyHours
+        - previousMarks
+    FeatureImpact:
+      type: object
+      properties:
+        feature:
+          type: string
+          enum:
+            - studyHours
+            - attendance
+            - internalMarks
+            - assignmentMarks
+            - previousStudyHours
+            - previousMarks
+        label:
+          type: string
+        value:
+          type: number
+        displayValue:
+          type: string
+        centerValue:
+          type: number
+        centerDisplayValue:
+          type: string
+        impact:
+          type: string
+          enum: [positive, negative, moderate]
+        importance:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Share of the absolute feature-level distance margin between the predicted cluster and the nearest alternative cluster.
+        distanceContribution:
+          type: number
+          minimum: 0
+          description: Absolute difference between this feature's squared weighted distance to the predicted cluster and the nearest alternative cluster.
+        reason:
+          type: string
+      required:
+        - feature
+        - label
+        - value
+        - displayValue
+        - centerValue
+        - centerDisplayValue
+        - impact
+        - importance
+        - distanceContribution
+        - reason
+    ImprovementSuggestion:
+      type: object
+      properties:
+        feature:
+          anyOf:
+            - type: string
+              enum:
+                - studyHours
+                - attendance
+                - internalMarks
+                - assignmentMarks
+                - previousStudyHours
+                - previousMarks
+            - type: "null"
+        title:
+          type: string
+        detail:
+          type: string
+        priority:
+          type: string
+          enum: [high, medium, maintain]
+      required: [feature, title, detail, priority]
+    Counterfactual:
+      type: object
+      properties:
+        feature:
+          type: string
+          enum:
+            - studyHours
+            - attendance
+            - internalMarks
+            - assignmentMarks
+            - previousStudyHours
+            - previousMarks
+        label:
+          type: string
+        currentValue:
+          type: number
+        suggestedValue:
+          type: number
+        currentDisplayValue:
+          type: string
+        suggestedDisplayValue:
+          type: string
+        reason:
+          type: string
+      required:
+        - feature
+        - label
+        - currentValue
+        - suggestedValue
+        - currentDisplayValue
+        - suggestedDisplayValue
+        - reason
+    PredictionExplanation:
+      type: object
+      properties:
+        summary:
+          type: string
+        distanceToAssignedCluster:
+          type: number
+          minimum: 0
+        nextClosestCategory:
+          anyOf:
+            - type: string
+              enum: [LOW, MEDIUM, HIGH]
+            - type: "null"
+        nextClosestDistance:
+          anyOf:
+            - type: number
+              minimum: 0
+            - type: "null"
+        clusterCenter:
+          $ref: "#/components/schemas/PredictionInput"
+        featureImpacts:
+          type: array
+          items:
+            $ref: "#/components/schemas/FeatureImpact"
+        topFactors:
+          type: array
+          items:
+            $ref: "#/components/schemas/FeatureImpact"
+        recommendations:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImprovementSuggestion"
+        counterfactuals:
+          type: array
+          items:
+            $ref: "#/components/schemas/Counterfactual"
+      required:
+        - summary
+        - distanceToAssignedCluster
+        - nextClosestCategory
+        - nextClosestDistance
+        - clusterCenter
+        - featureImpacts
+        - topFactors
+        - recommendations
+        - counterfactuals
+    PredictionResult:
+      type: object
+      properties:
+        category:
+          type: string
+          enum: [LOW, MEDIUM, HIGH]
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 100
+        cluster:
+          type: integer
+          minimum: 1
+          maximum: 3
+        recommendation:
+          type: string
+        input:
+          $ref: "#/components/schemas/PredictionInput"
+        explanation:
+          $ref: "#/components/schemas/PredictionExplanation"
+      required:
+        - category
+        - confidence
+        - cluster
+        - recommendation
+        - input
+        - explanation
+    ChatInput:
+      type: object
+      properties:
+        message:
+          type: string
+          minLength: 1
+        latestInput:
+          $ref: "#/components/schemas/PredictionInput"
+      required: [message]
+    ChatResult:
+      type: object
+      properties:
+        response:
+          type: string
+        prediction:
+          anyOf:
+            - type: string
+              enum: [LOW, MEDIUM, HIGH]
+            - type: "null"
+        confidence:
+          anyOf:
+            - type: number
+              minimum: 0
+              maximum: 100
+            - type: "null"
+        predictionResult:
+          anyOf:
+            - $ref: "#/components/schemas/PredictionResult"
+            - type: "null"
+      required: [response, prediction, confidence, predictionResult]
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+

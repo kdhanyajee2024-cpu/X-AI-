@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Student Performance AI"
+description = "An explainable academic performance predictor that estimates LOW, MEDIUM, or HIGH from six student indicators and explains the result with model-grounded factors, practical suggestions, and cautious what-if scenarios."
+version = "1.0.0"
+id = "artifacts/student-performance-ai"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19125
+
+[services.development]
+run = "pnpm --filter @workspace/student-performance-ai run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/student-performance-ai", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/student-performance-ai/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19125"
+BASE_PATH = "/"
